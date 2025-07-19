@@ -118,18 +118,14 @@
         <div id="message"></div>
     </div>
 
-    <!-- Firebase (solo para UI) -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-    
     <!-- Axios para llamadas a Google Sheets API -->
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     
     <script>
-        // Configuración de Google Sheets
+        // Configuración de Google Sheets (CON TU API KEY Y SHEET ID)
         const SHEET_ID = "1YH6JbIGGLxImip_gs-BGPvW_Vknd5pFekfxuyRX4Lus";
         const SHEET_NAME = "Usuarios";
-        const API_KEY = "AIzaSyBAD_H1xRjrH-v7mNPpnTjjYwU67fqLMHs"; // Reemplaza con tu API Key de Google Cloud
+        const API_KEY = "AIzaSyBAD_H1xRjrH-v7mNPpnTjjYwU67fqLMHs";
         
         // Mostrar mensajes
         function showMessage(text, isSuccess = false) {
@@ -159,29 +155,36 @@
             if (!validateCredentials(username, password)) return;
             
             try {
-                // Verificar si el usuario ya existe
+                // Paso 1: Obtener usuarios existentes
                 const response = await axios.get(
-                    `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}!A:C`,
-                    { params: { key: API_KEY } }
+                    `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}!A2:C`,
+                    { 
+                        params: { 
+                            key: API_KEY,
+                            majorDimension: "ROWS"
+                        }
+                    }
                 );
                 
                 const users = response.data.values || [];
-                const userExists = users.some(user => user[0] === username);
                 
+                // Paso 2: Verificar si el usuario ya existe
+                const userExists = users.some(user => user[0] === username);
                 if (userExists) {
-                    showMessage("El usuario ya está registrado");
+                    showMessage("⚠️ El usuario ya está registrado");
                     return;
                 }
                 
-                // Añadir nuevo usuario
-                await axios.post(
+                // Paso 3: Añadir nuevo usuario (fila)
+                const appendResponse = await axios.post(
                     `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}!A2:C:append`,
                     {
-                        values: [[username, password, "0"]] // Usuario, Contraseña, Balance inicial
+                        values: [[username, password, "0"]], // Formato: [Usuario, Contraseña, Balance]
+                        majorDimension: "ROWS"
                     },
                     {
                         params: {
-                            valueInputOption: "RAW",
+                            valueInputOption: "USER_ENTERED",
                             key: API_KEY
                         },
                         headers: {
@@ -190,10 +193,12 @@
                     }
                 );
                 
-                showMessage("¡Registro exitoso! Ahora inicia sesión", true);
+                showMessage("✅ Registro exitoso. Ahora inicia sesión", true);
+                document.getElementById("password").value = ""; // Limpiar campo
+                
             } catch (error) {
-                showMessage("Error al registrar: " + error.message);
-                console.error(error);
+                console.error("Error completo:", error);
+                showMessage("❌ Error al registrar: " + (error.response?.data?.error?.message || error.message));
             }
         }
         
@@ -205,39 +210,52 @@
             if (!validateCredentials(username, password)) return;
             
             try {
+                // Obtener todos los usuarios
                 const response = await axios.get(
                     `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}!A2:C`,
-                    { params: { key: API_KEY } }
+                    { 
+                        params: { 
+                            key: API_KEY,
+                            majorDimension: "ROWS"
+                        }
+                    }
                 );
                 
                 const users = response.data.values || [];
-                const validUser = users.find(user => user[0] === username && user[1] === password);
+                
+                // Buscar coincidencia exacta
+                const validUser = users.find(user => 
+                    user[0] === username && 
+                    user[1] === password
+                );
                 
                 if (validUser) {
-                    showMessage("Inicio de sesión exitoso. Redirigiendo...", true);
-                    // Guardar usuario en sessionStorage
-                    sessionStorage.setItem("currentUser", JSON.stringify({
+                    showMessage("🎉 Inicio de sesión exitoso", true);
+                    
+                    // Guardar datos en el almacenamiento local
+                    localStorage.setItem("currentUser", JSON.stringify({
                         username: username,
                         balance: validUser[2] || "0"
                     }));
-                    // Redirigir al panel después de 1 segundo
+                    
+                    // Redirigir después de 1 segundo
                     setTimeout(() => {
                         window.location.href = "panel.html";
                     }, 1000);
+                    
                 } else {
-                    showMessage("Usuario o contraseña incorrectos");
+                    showMessage("🔐 Usuario o contraseña incorrectos");
                 }
+                
             } catch (error) {
-                showMessage("Error al iniciar sesión: " + error.message);
-                console.error(error);
+                console.error("Error completo:", error);
+                showMessage("❌ Error al iniciar sesión: " + (error.response?.data?.error?.message || error.message));
             }
         }
         
-        // Opcional: Permitir login con Enter
+        // Permitir login con Enter
         document.addEventListener("keypress", function(event) {
-            if (event.key === "Enter") {
-                login();
-            }
+            if (event.key === "Enter") login();
         });
     </script>
 </body>
