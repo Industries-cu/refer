@@ -161,7 +161,7 @@
             try {
                 // Verificar si el usuario ya existe
                 const response = await axios.get(
-                    `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}!A2:C`,
+                    `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}!A:C`,
                     { params: { key: API_KEY } }
                 );
                 
